@@ -38,6 +38,9 @@ sudo service telegraf start
 
   [inputs.webhooks.particle]
     path = "/particle"
+  
+  [inputs.webhooks.artifactory]
+    path = "/artifactory"
 ```
 
 ## Available webhooks
@@ -48,6 +51,7 @@ sudo service telegraf start
 - [Rollbar](rollbar/)
 - [Papertrail](papertrail/)
 - [Particle](particle/)
+- [Artifactory](artifactory/)
 
 ## Adding new webhooks plugin
 
