@@ -38,9 +38,10 @@ The commands & flags are:
                                  'processors', 'aggregators' and 'inputs'
   --sample-config                print out full sample configuration
   --once                         enable once mode: gather metrics once, write them, and exit
-  --test                         enable test mode: gather metrics once and print them
-  --test-wait                    wait up to this many seconds for service
-                                 inputs to complete in test or once mode
+  --test                         enable test mode: gather metrics once and print them.
+                                 No outputs are executed!
+  --test-wait                    wait up to this many seconds for service inputs to complete
+                                 in test or once mode. Implies --test if not used with --once.
   --usage <plugin>               print usage for a plugin, ie, 'telegraf --usage mysql'
   --version                      display the version and exit
 
@@ -62,5 +63,4 @@ Examples:
   telegraf --config telegraf.conf --input-filter cpu:mem --output-filter influxdb
 
   # run telegraf with pprof
-  telegraf --config telegraf.conf --pprof-addr localhost:6060
-`
+  telegraf --config telegraf.conf --pprof-addr localhost:6060`

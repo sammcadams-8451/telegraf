@@ -1,6 +1,7 @@
 package ifname
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -106,6 +107,8 @@ type IfName struct {
 
 	getMapRemote mapFunc
 	makeTable    makeTableFunc
+
+	translator si.Translator
 }
 
 const minRetry = 5 * time.Minute
@@ -120,7 +123,7 @@ func (d *IfName) Description() string {
 
 func (d *IfName) Init() error {
 	d.getMapRemote = d.getMapRemoteNoMock
-	d.makeTable = makeTableNoMock
+	d.makeTable = d.makeTableNoMock
 
 	c := NewTTLCache(time.Duration(d.CacheTTL), d.CacheSize)
 	d.cache = &c
@@ -130,6 +133,10 @@ func (d *IfName) Init() error {
 	if _, err := snmp.NewWrapper(d.ClientConfig); err != nil {
 		return fmt.Errorf("parsing SNMP client config: %w", err)
 	}
+
+	// Since OIDs in this plugin are always numeric there is no need
+	// to translate.
+	d.translator = si.NewNetsnmpTranslator()
 
 	return nil
 }
@@ -192,13 +199,14 @@ func (d *IfName) invalidate(agent string) {
 
 func (d *IfName) Start(acc telegraf.Accumulator) error {
 	var err error
-	d.ifTable, err = d.makeTable("IF-MIB::ifDescr")
+
+	d.ifTable, err = d.makeTable("1.3.6.1.2.1.2.2.1.2")
 	if err != nil {
-		return fmt.Errorf("looking up ifDescr in local MIB: %w", err)
+		return fmt.Errorf("preparing ifTable: %v", err)
 	}
-	d.ifXTable, err = d.makeTable("IF-MIB::ifName")
+	d.ifXTable, err = d.makeTable("1.3.6.1.2.1.31.1.1.1.1")
 	if err != nil {
-		return fmt.Errorf("looking up ifName in local MIB: %w", err)
+		return fmt.Errorf("preparing ifXTable: %v", err)
 	}
 
 	fn := func(m telegraf.Metric) []telegraf.Metric {
@@ -307,11 +315,11 @@ func (d *IfName) getMapRemoteNoMock(agent string) (nameMap, error) {
 	//try ifXtable and ifName first.  if that fails, fall back to
 	//ifTable and ifDescr
 	var m nameMap
-	if m, err = buildMap(gs, d.ifXTable, "ifName"); err == nil {
+	if m, err = d.buildMap(gs, d.ifXTable); err == nil {
 		return m, nil
 	}
 
-	if m, err = buildMap(gs, d.ifTable, "ifDescr"); err == nil {
+	if m, err = d.buildMap(gs, d.ifTable); err == nil {
 		return m, nil
 	}
 
@@ -338,17 +346,17 @@ func init() {
 	})
 }
 
-func makeTableNoMock(fieldName string) (*si.Table, error) {
+func (d *IfName) makeTableNoMock(oid string) (*si.Table, error) {
 	var err error
 	tab := si.Table{
 		Name:       "ifTable",
 		IndexAsTag: true,
 		Fields: []si.Field{
-			{Oid: fieldName},
+			{Oid: oid, Name: "ifName"},
 		},
 	}
 
-	err = tab.Init()
+	err = tab.Init(d.translator)
 	if err != nil {
 		//Init already wraps
 		return nil, err
@@ -357,10 +365,10 @@ func makeTableNoMock(fieldName string) (*si.Table, error) {
 	return &tab, nil
 }
 
-func buildMap(gs snmp.GosnmpWrapper, tab *si.Table, column string) (nameMap, error) {
+func (d *IfName) buildMap(gs snmp.GosnmpWrapper, tab *si.Table) (nameMap, error) {
 	var err error
 
-	rtab, err := tab.Build(gs, true)
+	rtab, err := tab.Build(gs, true, d.translator)
 	if err != nil {
 		//Build already wraps
 		return nil, err
@@ -382,13 +390,13 @@ func buildMap(gs snmp.GosnmpWrapper, tab *si.Table, column string) (nameMap, err
 		if err != nil {
 			return nil, fmt.Errorf("index tag isn't a uint")
 		}
-		nameIf, ok := v.Fields[column]
+		nameIf, ok := v.Fields["ifName"]
 		if !ok {
-			return nil, fmt.Errorf("field %s is missing", column)
+			return nil, errors.New("ifName field is missing")
 		}
 		name, ok := nameIf.(string)
 		if !ok {
-			return nil, fmt.Errorf("field %s isn't a string", column)
+			return nil, errors.New("ifName field isn't a string")
 		}
 
 		t[i] = name
