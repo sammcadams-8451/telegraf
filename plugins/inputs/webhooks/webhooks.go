@@ -96,7 +96,7 @@ func (wb *Webhooks) SampleConfig() string {
 	#password = ""
 
   [inputs.webhooks.artifactory]
-    path = "/artifactory"
+	path = "/artifactory"
 	# secret = ""
 `
 }
