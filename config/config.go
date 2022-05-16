@@ -615,10 +615,8 @@ func printFilteredInputs(inputFilters []string, commented bool) {
 	// Print Inputs
 	for _, pname := range pnames {
 		// Skip inputs that are registered twice for backward compatibility
-		if pname == "cisco_telemetry_gnmi" {
-			continue
-		}
-		if pname == "KNXListener" {
+		switch pname {
+		case "cisco_telemetry_gnmi", "io", "KNXListener":
 			continue
 		}
 		creator := inputs.Inputs[pname]
@@ -678,23 +676,24 @@ func printConfig(name string, p telegraf.PluginDescriber, op string, commented b
 	if commented {
 		comment = "# "
 	}
-	fmt.Printf("\n%s# %s\n%s[[%s.%s]]", comment, p.Description(), comment, op, name)
 
 	if di.Since != "" {
 		removalNote := ""
 		if di.RemovalIn != "" {
 			removalNote = " and will be removed in " + di.RemovalIn
 		}
-		fmt.Printf("\n%s  ## DEPRECATED: The '%s' plugin is deprecated in version %s%s, %s.", comment, name, di.Since, removalNote, di.Notice)
+		fmt.Printf("\n%s ## DEPRECATED: The '%s' plugin is deprecated in version %s%s, %s.", comment, name, di.Since, removalNote, di.Notice)
 	}
 
 	config := p.SampleConfig()
 	if config == "" {
+		fmt.Printf("\n#[[%s.%s]]", op, name)
 		fmt.Printf("\n%s  # no configuration\n\n", comment)
 	} else {
 		lines := strings.Split(config, "\n")
+		fmt.Print("\n")
 		for i, line := range lines {
-			if i == 0 || i == len(lines)-1 {
+			if i == len(lines)-1 {
 				fmt.Print("\n")
 				continue
 			}
@@ -1243,14 +1242,6 @@ func (c *Config) addOutput(name string, table *ast.Table) error {
 func (c *Config) addInput(name string, table *ast.Table) error {
 	if len(c.InputFilters) > 0 && !sliceContains(name, c.InputFilters) {
 		return nil
-	}
-
-	// Legacy support renaming io input to diskio
-	if name == "io" {
-		if err := c.printUserDeprecation("inputs", name, nil); err != nil {
-			return err
-		}
-		name = "diskio"
 	}
 
 	// For inputs with parsers we need to compute the set of

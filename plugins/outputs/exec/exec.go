@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -19,27 +20,14 @@ const maxStderrBytes = 512
 
 // Exec defines the exec output plugin.
 type Exec struct {
-	Command []string        `toml:"command"`
-	Timeout config.Duration `toml:"timeout"`
-	Log     telegraf.Logger `toml:"-"`
+	Command     []string        `toml:"command"`
+	Environment []string        `toml:"environment"`
+	Timeout     config.Duration `toml:"timeout"`
+	Log         telegraf.Logger `toml:"-"`
 
 	runner     Runner
 	serializer serializers.Serializer
 }
-
-var sampleConfig = `
-  ## Command to ingest metrics via stdin.
-  command = ["tee", "-a", "/dev/null"]
-
-  ## Timeout for command to complete.
-  # timeout = "5s"
-
-  ## Data format to output.
-  ## Each data format has its own unique set of configuration options, read
-  ## more about them here:
-  ## https://github.com/influxdata/telegraf/blob/master/docs/DATA_FORMATS_OUTPUT.md
-  # data_format = "influx"
-`
 
 func (e *Exec) Init() error {
 	e.runner = &CommandRunner{log: e.Log}
@@ -62,16 +50,6 @@ func (e *Exec) Close() error {
 	return nil
 }
 
-// Description describes the plugin.
-func (e *Exec) Description() string {
-	return "Send metrics to command as input over stdin"
-}
-
-// SampleConfig returns a sample configuration.
-func (e *Exec) SampleConfig() string {
-	return sampleConfig
-}
-
 // Write writes the metrics to the configured command.
 func (e *Exec) Write(metrics []telegraf.Metric) error {
 	var buffer bytes.Buffer
@@ -85,12 +63,12 @@ func (e *Exec) Write(metrics []telegraf.Metric) error {
 		return nil
 	}
 
-	return e.runner.Run(time.Duration(e.Timeout), e.Command, &buffer)
+	return e.runner.Run(time.Duration(e.Timeout), e.Command, e.Environment, &buffer)
 }
 
 // Runner provides an interface for running exec.Cmd.
 type Runner interface {
-	Run(time.Duration, []string, io.Reader) error
+	Run(time.Duration, []string, []string, io.Reader) error
 }
 
 // CommandRunner runs a command with the ability to kill the process before the timeout.
@@ -100,8 +78,11 @@ type CommandRunner struct {
 }
 
 // Run runs the command.
-func (c *CommandRunner) Run(timeout time.Duration, command []string, buffer io.Reader) error {
+func (c *CommandRunner) Run(timeout time.Duration, command []string, environments []string, buffer io.Reader) error {
 	cmd := exec.Command(command[0], command[1:]...)
+	if len(environments) > 0 {
+		cmd.Env = append(os.Environ(), environments...)
+	}
 	cmd.Stdin = buffer
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

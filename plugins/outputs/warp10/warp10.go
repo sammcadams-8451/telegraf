@@ -35,33 +35,6 @@ type Warp10 struct {
 	Log telegraf.Logger `toml:"-"`
 }
 
-var sampleConfig = `
-  # Prefix to add to the measurement.
-  prefix = "telegraf."
-
-  # URL of the Warp 10 server
-  warp_url = "http://localhost:8080"
-
-  # Write token to access your app on warp 10
-  token = "Token"
-
-  # Warp 10 query timeout
-  # timeout = "15s"
-
-  ## Print Warp 10 error body
-  # print_error_body = false
-
-  ## Max string error size
-  # max_string_error_size = 511
-
-  ## Optional TLS Config
-  # tls_ca = "/etc/telegraf/ca.pem"
-  # tls_cert = "/etc/telegraf/cert.pem"
-  # tls_key = "/etc/telegraf/key.pem"
-  ## Use TLS but skip chain & host verification
-  # insecure_skip_verify = false
-`
-
 // MetricLine Warp 10 metrics
 type MetricLine struct {
 	Metric    string
@@ -189,7 +162,7 @@ func buildValue(v interface{}) (string, error) {
 	case int64:
 		retv = intToString(p)
 	case string:
-		retv = fmt.Sprintf("'%s'", strings.Replace(p, "'", "\\'", -1))
+		retv = fmt.Sprintf("'%s'", strings.ReplaceAll(p, "'", "\\'"))
 	case bool:
 		retv = boolToString(p)
 	case uint64:
@@ -216,16 +189,6 @@ func boolToString(inputBool bool) string {
 
 func floatToString(inputNum float64) string {
 	return strconv.FormatFloat(inputNum, 'f', 6, 64)
-}
-
-// SampleConfig get config
-func (w *Warp10) SampleConfig() string {
-	return sampleConfig
-}
-
-// Description get description
-func (w *Warp10) Description() string {
-	return "Write metrics to Warp 10"
 }
 
 // Close close

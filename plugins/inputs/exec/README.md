@@ -8,6 +8,7 @@ This plugin can be used to poll for custom metrics from any source.
 ## Configuration
 
 ```toml
+# Read metrics from one or more commands that can output to stdout
 [[inputs.exec]]
   ## Commands array
   commands = [
@@ -15,6 +16,12 @@ This plugin can be used to poll for custom metrics from any source.
     "/usr/bin/mycollector --foo=bar",
     "/tmp/collect_*.sh"
   ]
+
+  ## Environment variables
+  ## Array of "key=value" pairs to pass as environment variables
+  ## e.g. "KEY=value", "USERNAME=John Doe",
+  ## "LD_LIBRARY_PATH=/opt/custom/lib64:/usr/local/libs"
+  # environment = []
 
   ## Timeout for each command to complete.
   timeout = "5s"
@@ -54,7 +61,7 @@ It can be paired with the following configuration and will be run at the `interv
 
 ### My script works when I run it by hand, but not when Telegraf is running as a service
 
-This may be related to the Telegraf service running as a different user.  The
+This may be related to the Telegraf service running as a different user. The
 official packages run Telegraf as the `telegraf` user and group on Linux
 systems.
 

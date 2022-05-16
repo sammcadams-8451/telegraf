@@ -17,24 +17,6 @@ type InternetSpeed struct {
 	serverCache        *speedtest.Server
 }
 
-const sampleConfig = `
-  ## Sets if runs file download test
-  # enable_file_download = false
-
-  ## Caches the closest server location
-  # cache = false
-`
-
-// Description returns information about the plugin.
-func (is *InternetSpeed) Description() string {
-	return "Monitors internet speed using speedtest.net service"
-}
-
-// SampleConfig displays configuration instructions.
-func (is *InternetSpeed) SampleConfig() string {
-	return sampleConfig
-}
-
 const measurement = "internet_speed"
 
 func (is *InternetSpeed) Gather(acc telegraf.Accumulator) error {
@@ -46,14 +28,14 @@ func (is *InternetSpeed) Gather(acc telegraf.Accumulator) error {
 		if err != nil {
 			return fmt.Errorf("fetching user info failed: %v", err)
 		}
-		serverList, err := speedtest.FetchServerList(user)
+		serverList, err := speedtest.FetchServers(user)
 		if err != nil {
 			return fmt.Errorf("fetching server list failed: %v", err)
 		}
-		if len(serverList.Servers) < 1 {
+		if len(serverList) < 1 {
 			return fmt.Errorf("no servers found")
 		}
-		s = serverList.Servers[0]
+		s = serverList[0]
 		is.Log.Debugf("Found server: %v", s)
 		if is.Cache {
 			is.serverCache = s
